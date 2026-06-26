@@ -1,154 +1,98 @@
-import os
-import io
-from functools import partial
-from PIL import Image
-from reportlab.lib.pagesizes import A4
+
 from reportlab.pdfgen import canvas
-from reportlab.lib.utils import ImageReader
+from reportlab.lib.pagesizes import A4, A3, LETTER
+from reportlab.lib.units import mm
+from PIL import Image as PILImage
+import os
 
-# ================= 1. 纯函数：配置与数据准备 =================
 
-def get_image_files(folder, supported_exts=('.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp')):
-    """纯函数：获取并过滤文件夹中的图片路径，返回排序后的列表"""
-    files = [
-        os.path.join(folder, f) 
-        for f in os.listdir(folder) 
-        if os.path.splitext(f)[1].lower() in supported_exts
-    ]
-    return sorted(files)
 
-def calculate_draw_area(page_size, margins):
-    """纯函数：根据页面大小和边距，计算可用绘制区域的宽高"""
-    page_width, page_height = page_size
-    margin_left, margin_bottom, margin_right, margin_top = margins
-    return (
-        page_width - margin_left - margin_right,
-        page_height - margin_top - margin_bottom
-    )
-
-# ================= 2. 纯函数：图片处理策略 =================
-
-def _stretch(img, target_w, target_h):
-    """策略1：撑满（不保持比例）"""
-    return img.resize((int(target_w), int(target_h)), Image.LANCZOS)
-
-def _fit(img, target_w, target_h):
-    """策略2：保持比例最大完整显示（居中留白）"""
-    img_ratio = img.width / img.height
-    target_ratio = target_w / target_h
-    
-    if img_ratio > target_ratio:
-        new_w, new_h = int(target_w), int(target_w / img_ratio)
-    else:
-        new_h, new_w = int(target_h), int(target_h * img_ratio)
-        
-    resized = img.resize((new_w, new_h), Image.LANCZOS)
-    # 创建白色背景画布并居中粘贴
-    canvas_img = Image.new('RGB', (int(target_w), int(target_h)), (255, 255, 255))
-    canvas_img.paste(resized, ((int(target_w) - new_w) // 2, (int(target_h) - new_h) // 2))
-    return canvas_img
-
-def _cover(img, target_w, target_h):
-    """策略3：保持比例撑满，居中裁剪"""
-    img_ratio = img.width / img.height
-    target_ratio = target_w / target_h
-    
-    if img_ratio > target_ratio:
-        new_h, new_w = int(target_h), int(target_h * img_ratio)
-    else:
-        new_w, new_h = int(target_w), int(target_w / img_ratio)
-        
-    resized = img.resize((new_w, int(new_h)), Image.LANCZOS)
-    # 居中裁剪
-    crop_x = (new_w - int(target_w)) // 2
-    crop_y = (new_h - int(target_h)) // 2
-    return resized.crop((crop_x, crop_y, crop_x + int(target_w), crop_y + int(target_h)))
-
-# 策略映射表（避免复杂的 if-else 分支）
-IMAGE_STRATEGIES = {
-    1: _stretch,
-    2: _fit,
-    3: _cover
+PAGE_SIZE_MAP = {
+    'a4': A4,       # (595.27, 841.89)
+    'a3': A3,       # (841.89, 1190.55)
+    'letter': LETTER,
+    # 你也可以在这里添加更多预设
 }
 
-def process_image(img_path, draw_area, mode):
-    """纯函数：读取图片，根据模式应用策略，返回处理后的 PIL Image"""
-    img = Image.open(img_path).convert("RGB")
-    strategy = IMAGE_STRATEGIES.get(mode, _fit)
-    return strategy(img, *draw_area)
+def image_to_pdf(output_path, image_folder, page_size):
+    print(f"正在使用 ReportLab 生成新 PDF...")
 
-def image_to_bytes(img, fmt='JPEG'):
-    """纯函数：将 PIL Image 转换为字节流"""
-    byte_arr = io.BytesIO()
-    img.save(byte_arr, format=fmt)
-    byte_arr.seek(0)
-    return byte_arr
+    def _get_page_size(page_size):
+        target_size = None
+        
+        if isinstance(page_size, str):
+            # 如果是字符串，去 Map 里找，找不到默认用 A4
+            target_size = PAGE_SIZE_MAP.get(page_size.lower(), A4)
+            print(f"检测到字符串尺寸 '{page_size}'，已匹配为: {target_size}")
+        elif isinstance(page_size, (tuple, list)) and len(page_size) == 2:
+            # 如果是元组或列表，直接使用
+            target_size = tuple(page_size)
+            print(f"检测到自定义尺寸: {target_size}")
+        else:
+            # 兜底处理
+            target_size = A4
+            print(f"无效的尺寸格式，已回退到默认 A4")
+        
+        print(target_size)
+        return target_size
 
-# ================= 3. 副作用函数：PDF 生成 =================
+    def _get_image(folder):
+        """获取并排序图片路径 (纯函数)"""
+        valid_ext = {'.jpg', '.jpeg', '.png', '.bmp'}
+        files = [
+            os.path.join(folder, f)
+            for f in os.listdir(folder)
+            if os.path.splitext(f)[1].lower() in valid_ext
+        ]
+        return sorted(files, key=os.path.basename)
 
-def create_pdf_pipeline(pdf_path, page_size, margins, mode):
-    """
-    高阶函数：返回一个接收图片路径列表的函数（闭包）
-    将 PDF 的副作用操作封装在内部
-    """
-    draw_area = calculate_draw_area(page_size, margins)
-    margin_left, margin_bottom, _, _ = margins
     
-    def _pipeline(image_files):
-        c = canvas.Canvas(pdf_path, pagesize=page_size)
-        c.setPageCompression(0)  # 禁用页面压缩
+    # 1. 获取 A4 纸尺寸 (单位：点 pt)
+    page_w, page_h = _get_page_size(page_size=page_size) 
+    
+    c = canvas.Canvas(output_path, pagesize=(page_w, page_h))
+    
+    images = _get_image(image_folder)
+
+    for image_index in range(len(images)):
+        print(f"正在插入第 {image_index + 1} 张图片...") 
+        image_path =  images[image_index]
+        # 2. 获取图片原始像素尺寸
+        img = PILImage.open(image_path)
+        img_w, img_h = img.size 
         
-        # 使用 map 和 partial 组合处理流程
-        process_and_convert = partial(process_image, draw_area=draw_area, mode=mode)
+        # 3. 核心：计算合适的缩放比率，确保图片完整显示在 A4 内且不变形
+        ratio = min(page_w / img_w, page_h / img_h)
+        target_width_pt = img_w * ratio
+        target_height_pt = img_h * ratio
         
-        for img_path in image_files:
-            try:
-                # 管道：读取路径 -> 处理图片 -> 转字节流 -> 写入 PDF
-                processed_img = process_and_convert(img_path)
-                img_reader = ImageReader(image_to_bytes(processed_img))
-
-                img_start_x = margin_left
-                img_start_y = margin_bottom
-                img_width, img_height = draw_area
-
-                c.drawImage(img_reader, img_start_x, img_start_y, img_width, img_height)
-                c.showPage()
-                print(f"[OK] {os.path.basename(img_path)}")
-            except Exception as e:
-                print(f"[ERROR] {img_path}: {e}")
-                
-        c.save()
-        print(f"\nPDF 生成成功: {pdf_path}")
         
-    return _pipeline
-
-# ================= 4. 主执行入口 =================
-
-if __name__ == "__main__":
-    image_folder = "/Users/teacher/Desktop/未命名文件夹 3/思凡尼2026图册_图片_1"
-    output_path = "/Users/teacher/Desktop/未命名文件夹 3/a4_output.pdf"
-    # 1. 定义配置（数据与逻辑分离）
-    config = {
-        "folder": image_folder,
-        "pdf_path": output_path,
-        "page_size": A4,
-        "margins": (0, 0, 0, 0),
-        "mode": 1  # 1: 撑满, 2: 适应, 3: 裁剪撑满
-    }
-
-    # 2. 获取数据
-    image_files = get_image_files(config["folder"])
-    if not image_files:
-        print("未找到图片！")
-    else:
-        # 3. 构建并执行管道
-        # create_pdf_pipeline 返回一个纯数据驱动的转换函数
-        pdf_converter = create_pdf_pipeline(
-            config["pdf_path"], 
-            config["page_size"], 
-            config["margins"], 
-            config["mode"]
+        # 计算居中坐标 (ReportLab 的坐标系原点在左下角)
+        center_x = (page_w - target_width_pt) / 2
+        center_y = (page_h - target_height_pt) / 2
+        
+        c.drawImage(
+            image_path, 
+            center_x, center_y, 
+            width=target_width_pt, 
+            height=target_height_pt, 
+            preserveAspectRatio=True, 
+            mask='auto'
         )
-        
-        # 4. 触发执行
-        pdf_converter(image_files)
+
+        c.showPage()
+    
+    c.save()
+    print(f"    -> 生成成功！物理尺寸: {target_width_pt:.2f}pt x {target_height_pt:.2f}pt")
+
+
+# ================= 执行主流程 =================
+if __name__ == "__main__":
+        output_path = "/Users/teacher/Desktop/未命名文件夹 3/111.pdf"
+        image_folder = "/Users/teacher/Desktop/未命名文件夹 3/思凡尼2026图册_图片_1"
+        page_size = "A3"
+        image_to_pdf(
+             output_path=output_path,
+             image_folder=image_folder,
+             page_size=page_size
+        )
