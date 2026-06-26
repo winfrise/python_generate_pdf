@@ -14,7 +14,7 @@ PAGE_SIZE_MAP = {
     # 你也可以在这里添加更多预设
 }
 
-def image_to_pdf(output_path, image_folder, page_size):
+def image_to_pdf(output_path, image_folder, page_size, resize_mode='fill'):
     print(f"正在使用 ReportLab 生成新 PDF...")
 
     def _get_page_size(page_size):
@@ -61,22 +61,48 @@ def image_to_pdf(output_path, image_folder, page_size):
         img = PILImage.open(image_path)
         img_w, img_h = img.size 
         
-        # 3. 核心：计算合适的缩放比率，确保图片完整显示在 A4 内且不变形
-        ratio = min(page_w / img_w, page_h / img_h)
-        target_width_pt = img_w * ratio
-        target_height_pt = img_h * ratio
-        
-        
-        # 计算居中坐标 (ReportLab 的坐标系原点在左下角)
-        center_x = (page_w - target_width_pt) / 2
-        center_y = (page_h - target_height_pt) / 2
+
+        target_width_pt, target_height_pt = 0, 0
+        target_x, target_y = 0, 0
+        preserve_ratio = True
+
+        if resize_mode == 'fill':
+            # 模式 1: Fill (强制拉伸)
+            target_width_pt, target_height_pt = page_w, page_h
+            target_x, target_y = 0, 0
+            preserve_ratio = False 
+            
+        else:
+            # 计算宽高比
+            scale_w = page_w / img_w
+            scale_h = page_h / img_h
+            
+            if resize_mode == 'contain':
+                # 模式 2: Contain (取最小缩放比，保证不溢出)
+                scale = min(scale_w, scale_h)
+            elif resize_mode == 'cover':
+                # 模式 3: Cover (取最大缩放比，保证不留白)
+                scale = max(scale_w, scale_h)
+            else:
+                print(f"未知模式 {resize_mode}，回退到 contain")
+                scale = min(scale_w, scale_h)
+
+            target_width_pt  = img_w * scale
+            target_height_pt = img_h * scale
+            
+            # 计算居中坐标
+            target_x = (page_w - target_width_pt) / 2
+            target_y = (page_h - target_height_pt) / 2
+
+
+
         
         c.drawImage(
             image_path, 
-            center_x, center_y, 
+            target_x, target_y, 
             width=target_width_pt, 
             height=target_height_pt, 
-            preserveAspectRatio=True, 
+            preserveAspectRatio=preserve_ratio, 
             mask='auto'
         )
 
@@ -90,9 +116,11 @@ def image_to_pdf(output_path, image_folder, page_size):
 if __name__ == "__main__":
         output_path = "/Users/teacher/Desktop/未命名文件夹 3/111.pdf"
         image_folder = "/Users/teacher/Desktop/未命名文件夹 3/思凡尼2026图册_图片_1"
-        page_size = "A3"
+        page_size = "A4"
+        resize_mode = "fill"
         image_to_pdf(
              output_path=output_path,
              image_folder=image_folder,
-             page_size=page_size
+             page_size=page_size,
+             resize_mode=resize_mode
         )
