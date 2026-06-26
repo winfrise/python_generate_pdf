@@ -96,6 +96,7 @@ def create_pdf_pipeline(pdf_path, page_size, margins, mode):
     
     def _pipeline(image_files):
         c = canvas.Canvas(pdf_path, pagesize=page_size)
+        c.setPageCompression(0)  # 禁用页面压缩
         
         # 使用 map 和 partial 组合处理流程
         process_and_convert = partial(process_image, draw_area=draw_area, mode=mode)
