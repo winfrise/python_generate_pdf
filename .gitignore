@@ -1,0 +1,49 @@
+# --- Python 运行时产生的文件 ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# --- 虚拟环境（venv） ---
+# 忽略你创建的 .venv 文件夹
+.venv/
+venv/
+ENV/
+env/
+
+# --- Python 开发工具与打包产物 ---
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# --- 项目生成的临时文件与报表 ---
+# 忽略你代码中生成的 Excel 和 PDF 文件
+*.xlsx
+*.xls
+*.pdf
+# 忽略生成的 CSV 数据文件
+*.csv
+
+# --- 操作系统产生的垃圾文件 ---
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# --- 常见的 IDE 配置文件 ---
+# VS Code
+.vscode/
+# PyCharm
+.idea/
+*.swp
+*.swo
+*~
