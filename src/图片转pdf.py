@@ -36,7 +36,7 @@ def image_to_pdf(output_path, image_folder, page_size, resize_mode='fill'):
         print(target_size)
         return target_size
 
-    def _get_image(folder):
+    def _get_all_images(folder):
         """获取并排序图片路径 (纯函数)"""
         valid_ext = {'.jpg', '.jpeg', '.png', '.bmp'}
         files = [
@@ -52,7 +52,7 @@ def image_to_pdf(output_path, image_folder, page_size, resize_mode='fill'):
     
     c = canvas.Canvas(output_path, pagesize=(page_w, page_h))
     
-    images = _get_image(image_folder)
+    images = _get_all_images(image_folder)
 
     for image_index in range(len(images)):
         print(f"正在插入第 {image_index + 1} 张图片...") 
