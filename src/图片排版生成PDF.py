@@ -96,24 +96,26 @@ def calculate_layout(images: list[str], page_width: float, page_height: float, m
         return positions
 
     elif count == 3:
+        half_space = 10
         half_h = page_available_h / 2
-        top_right_w = page_available_w / 2  # 右上角区域宽度
         positions = []
         for i, img in enumerate(images):
             w, h = get_image_size(img)
             if i == 0:  # 左上角
-                scaled_w, scaled_h = scale_to_height(w, h, half_h)
+                image_scaled_w, image_scaled_h = scale_to_height(w, h, half_h - half_space)
                 x = margin
-                y = margin + page_available_h - half_h
+                y = page_height - margin - image_scaled_h
             elif i == 1:  # 右下角
-                scaled_w, scaled_h = scale_to_height(w, h, half_h)
-                x = margin + page_available_w - scaled_w
+                image_scaled_w, image_scaled_h = scale_to_height(w, h, half_h - half_space)
+                x = page_width - margin - image_scaled_w
                 y = margin
-            else:  # 右上角
-                scaled_w, scaled_h = scale_to_width(w, h, top_right_w)
-                x = margin + page_available_w - top_right_w
-                y = margin + page_available_h - scaled_h
-            positions.append({'path': img, 'x': x, 'y': y, 'width': scaled_w, 'height': scaled_h})
+            elif i == 2:  # 右上角
+                top_right_w = page_available_w - positions[0]['width'] - half_space # 右上角区域宽度
+                image_scaled_w, image_scaled_h = scale_to_width(w, h, top_right_w)
+                x = page_width - image_scaled_w - margin
+                y = page_height - margin - image_scaled_h
+
+            positions.append({'path': img, 'x': x, 'y': y, 'width': image_scaled_w, 'height': image_scaled_h})
         return positions
 
     elif count == 4:
