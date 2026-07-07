@@ -6,6 +6,23 @@ from functools import reduce
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.units import mm
+
+# 建议在全局注册一次字体，避免重复注册报错
+try:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    FONT_DIR = os.path.join(BASE_DIR, "assets", "fonts")
+
+    # 这里以 Windows 的黑体为例，Mac/Linux 请替换为对应路径
+    pdfmetrics.registerFont(TTFont('SimHei', f'{FONT_DIR}/simhei.ttf'))
+    pdfmetrics.registerFont(TTFont('SimSun', f'{FONT_DIR}/simsun.ttf'))
+    DEFAULT_FONT = 'SimHei'
+except:
+    print("警告：未找到 simhei.ttf，中文可能无法正常显示")
+    DEFAULT_FONT = 'Helvetica' 
+
 
 # ------------------- 核心工具函数 ------------------- #
 def extract_category(filepath: str) -> str:
@@ -150,6 +167,36 @@ def draw_images(c: canvas.Canvas, layout: list[dict]):
         c.drawImage(pos['path'], pos['x'], pos['y'], width=pos['width'], height=pos['height'])
 
 
+
+def draw_page_title(canvas, title_text, page_width, page_height, margin=20):
+    """
+    在页面顶部绘制类别标题
+    
+    Args:
+        canvas: ReportLab 画布对象
+        title_text: 要显示的标题字符串 (如 "901")
+        page_width: 页面总宽度
+        page_height: 页面总高度
+        margin: 页边距 (默认 20)
+    """
+    # 1. 设置样式
+    font_size = 18
+    canvas.setFont(DEFAULT_FONT, font_size)
+    canvas.setFillColorRGB(0.1, 0.1, 0.1)  # 深灰色，比纯黑更柔和
+    
+    # 2. 计算位置 (水平居中)
+    text_width = canvas.stringWidth(title_text, DEFAULT_FONT, font_size)
+    x = (page_width - text_width) / 2
+    y = page_height - margin - 5      # 距离顶部 margin 下方一点
+    
+    # 3. 绘制文字
+    canvas.drawString(x, y, title_text)
+    
+    # 4. (可选) 绘制一条装饰横线
+    # line_y = y - 6                    # 横线在文字下方
+    # canvas.setStrokeColorRGB(0.8, 0.8, 0.8) # 浅灰色线条
+    # canvas.line(margin, line_y, page_width - margin, line_y)
+
 # ------------------- 主流程函数 ------------------- #
 def generate_pdf(image_dir: str, output_path: str, page_size=A4, margin=36):
     """生成PDF的主函数"""
@@ -181,9 +228,11 @@ def generate_pdf(image_dir: str, output_path: str, page_size=A4, margin=36):
         try:
             layout = calculate_layout(file_list, page_w, page_h, margin)
             draw_images(c, layout)
+            draw_page_title(c, f"产品类别：{category}", page_w, page_h)
             c.showPage()  # 新建页面
         except Exception as e:
             print(f"处理类别 {category} 时出错：{e}")
+
 
     # 5. 保存PDF
     c.save()
