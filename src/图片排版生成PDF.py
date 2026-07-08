@@ -228,7 +228,7 @@ def generate_pdf(image_dir: str, output_path: str, page_size=A4, margin=36):
         try:
             layout = calculate_layout(file_list, page_w, page_h, margin)
             draw_images(c, layout)
-            draw_page_title(c, f"产品类别：{category}", page_w, page_h)
+            draw_page_title(c, f"产品型号：{category}", page_w, page_h)
             c.showPage()  # 新建页面
         except Exception as e:
             print(f"处理类别 {category} 时出错：{e}")
@@ -241,8 +241,8 @@ def generate_pdf(image_dir: str, output_path: str, page_size=A4, margin=36):
 
 # ------------------- 测试运行 ------------------- #
 if __name__ == "__main__":
-    IMAGE_DIR = "/Users/teacher/Desktop/未命名文件夹/思凡尼2026图册_图片_副本"   # 替换为你的图片目录路径
-    OUTPUT_PDF = "/Users/teacher/Desktop/未命名文件夹/output.pdf"  # 输出PDF路径
+    IMAGE_DIR = "/Users/teacher/Desktop/pdf生成/思凡尼2026图册_图片_副本"   # 替换为你的图片目录路径
+    OUTPUT_PDF = "/Users/teacher/Desktop/pdf生成/output.pdf"  # 输出PDF路径
     PAGE_MARGIN = 10         # 页面边距（单位：点，1英寸=72点）
 
     generate_pdf(
