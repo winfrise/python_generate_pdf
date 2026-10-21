@@ -15,6 +15,35 @@ from reportlab.pdfgen import canvas
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
 
 
+from pathlib import Path
+
+def get_subfolder_info(input_dir):
+    """
+    遍历 input_dir 下的所有子文件夹，返回包含完整路径和预期PDF名称的列表。
+    """
+    input_path = Path(input_dir)
+    
+    # 检查输入路径是否存在且为文件夹
+    if not input_path.exists() or not input_path.is_dir():
+        raise ValueError(f"提供的路径不存在或不是一个文件夹: {input_dir}")
+        
+    result_list = []
+    
+    # iterdir() 遍历当前目录下的直接子项
+    for child in input_path.iterdir():
+        if child.is_dir():
+            # 构造 output_pdf_path: [父文件夹名]_[子文件夹名].pdf
+            parent_name = input_path.name
+            child_name = child.name
+            output_pdf_name = f"{input_dir}/{child_name}.pdf"
+            
+            result_list.append({
+                "input_child_dir": str(child.resolve()),  # 子文件夹的绝对完整路径
+                "output_pdf_path": output_pdf_name        # 生成的PDF文件名
+            })
+            
+    return result_list
+
 def natural_key(name):
     """自然排序的排序键: 把文件名里的数字段当作整数比较。
     例如 page2.jpg < page10.jpg。"""
@@ -113,17 +142,35 @@ def images_to_pdf(image_dir, output_pdf, dpi=72.0):
 
 
 if __name__ == "__main__":
-    image_dir = "/Users/teacher/Desktop/111/急/test"
+    image_dir = "/Users/teacher/Desktop/111/急/001"
+    batch = False
     dpi = 300
 
-    now = datetime.now()
-    formatted_time = now.strftime("%Y年%m月%d日%H时%M分%S秒") + f"{now.microsecond // 1000:03d}"
-    formatted_time = now.strftime("%Y%m%d%H%M%S") + f"{now.microsecond // 1000:03d}"
-    output_pdf = f"{image_dir}_{formatted_time}.pdf"
 
 
-    images_to_pdf(
-        image_dir=image_dir, 
-        output_pdf=output_pdf, 
-        dpi = dpi
-    )
+    if not batch:
+
+        now = datetime.now()
+        # formatted_time = now.strftime("%Y年%m月%d日%H时%M分%S秒") + f"{now.microsecond // 1000:03d}"
+        formatted_time = now.strftime("%Y%m%d%H%M%S") + f"{now.microsecond // 1000:03d}"
+        output_pdf = f"{image_dir}_{formatted_time}.pdf"
+        images_to_pdf(
+            image_dir=image_dir, 
+            output_pdf=output_pdf, 
+            dpi = dpi
+        )
+    else:
+        result_list = get_subfolder_info(image_dir)
+        print(f"共发现 {len(result_list)} 个子文件夹，开始处理：\n")
+
+        # 遍历列表中的每一个字典
+        for item in result_list:
+            # 通过键名获取对应的值
+            source_dir = item["input_child_dir"]
+            target_pdf = item["output_pdf_path"]
+
+            images_to_pdf(
+                image_dir=source_dir, 
+                output_pdf=target_pdf, 
+                dpi = dpi
+            )
