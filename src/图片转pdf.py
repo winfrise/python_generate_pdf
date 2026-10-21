@@ -142,8 +142,8 @@ def images_to_pdf(image_dir, output_pdf, dpi=72.0):
 
 
 if __name__ == "__main__":
-    image_dir = "/Users/teacher/Desktop/111/急/001"
-    batch = False
+    image_dir = "/Users/teacher/Desktop/111/000"
+    batch = True
     dpi = 300
 
 
